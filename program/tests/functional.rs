@@ -2,9 +2,6 @@
 use std::str::FromStr;
 
 use solana_program::{hash::Hash,
-    instruction::{AccountMeta, Instruction},
-    program_option::COption,
-    program_pack::Pack,
     pubkey::Pubkey,
     rent::Rent,
     sysvar,
@@ -18,11 +15,9 @@ use solana_sdk::{
     signature::Keypair,
     system_instruction
 };
-use token_vesting::entrypoint::process_instruction;
-use token_vesting::instruction::{VestingInstruction, init, create, unlock, change_destination};
-use token_vesting::state::TOTAL_SIZE;
-use spl_associated_token_account::{get_associated_token_address, create_associated_token_account};
-use spl_token::{self, instruction::{initialize_mint, initialize_account, mint_to}, state::Mint};
+use token_vesting::{entrypoint::process_instruction, instruction::Schedule};
+use token_vesting::instruction::{init, unlock, change_destination, create};
+use spl_token::{self, instruction::{initialize_mint, initialize_account, mint_to}};
 
 #[tokio::test]
 async fn test_token_vesting() {
@@ -47,7 +42,6 @@ async fn test_token_vesting() {
     // let vesting_token_account = get_associated_token_address(&vesting_account_key, &mint.pubkey());
     let vesting_token_account = Keypair::new();
     
-
     let mut program_test = ProgramTest::new(
         "token_vesting",
         program_id,
@@ -72,7 +66,8 @@ async fn test_token_vesting() {
         &program_id,
         &source_account.pubkey(),
         &vesting_account_key,
-        seeds
+        seeds,
+        1
     ).unwrap()
     ];
     let mut init_transaction = Transaction::new_with_payer(
@@ -120,6 +115,10 @@ async fn test_token_vesting() {
         ).unwrap()
     ];
 
+    let schedules = vec![
+        Schedule {amount: 20, release_height: 0}
+    ];
+
     let test_instructions = [
         create(
             &program_id,
@@ -130,8 +129,7 @@ async fn test_token_vesting() {
             &source_token_account.pubkey(),
             &destination_token_account.pubkey(),
             &mint.pubkey(),
-            20,
-            0,
+            schedules,
             seeds.clone()
         ).unwrap(),
         unlock(
@@ -237,7 +235,6 @@ fn mint_init_transaction(
         recent_blockhash
     );
     transaction
-    
 }
 
 fn create_token_account(
